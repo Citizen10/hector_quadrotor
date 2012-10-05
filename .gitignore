@@ -1,0 +1,19 @@
+
+# /hector_quadrotor_controller/
+/hector_quadrotor_controller/bin
+/hector_quadrotor_controller/build
+/hector_quadrotor_controller/lib
+
+# /hector_quadrotor_controller/matlab/
+/hector_quadrotor_controller/matlab/emcprj
+
+# /hector_quadrotor_controller/urdf/
+/hector_quadrotor_controller/urdf/*.urdf.xacro
+
+# /hector_uav_msgs/
+/hector_uav_msgs/bin
+/hector_uav_msgs/build
+/hector_uav_msgs/lib
+/hector_uav_msgs/msg_gen
+/hector_uav_msgs/src
+/hector_uav_msgs/srv_gen
