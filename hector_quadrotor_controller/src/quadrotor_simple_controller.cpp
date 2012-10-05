@@ -65,6 +65,12 @@ void GazeboQuadrotorSimpleController::Load(physics::ModelPtr _model, sdf::Elemen
   else
     velocity_topic_ = _sdf->GetElement("topicName")->GetValueString();
 
+  if (_sdf->HasElement("gimbalPoseTopicName"))
+    gimbal_pose_topic_ = _sdf->GetElement("gimbalPoseTopicName")->GetValueString();
+
+  if (_sdf->HasElement("gimbalStateTopicName"))
+    gimbal_state_topic_ = _sdf->GetElement("gimbalStateTopicName")->GetValueString();
+
   if (!_sdf->HasElement("imuTopic"))
     imu_topic_.clear();
   else
@@ -85,6 +91,17 @@ void GazeboQuadrotorSimpleController::Load(physics::ModelPtr _model, sdf::Elemen
     link = boost::shared_dynamic_cast<physics::Link>(world->GetEntity(link_name_));
   }
 
+  if( _sdf->HasElement( "gimbalJointNamePrefix"))
+    {
+      gimbal_joint_name_prefix_ = _sdf->GetElement( "gimbalJointNamePrefix" )->GetValueString();
+      gimbal_pitch_joint = boost::shared_dynamic_cast<physics::Joint>(_model->GetJoint( gimbal_joint_name_prefix_ + "pitch" ) );
+      gimbal_roll_joint = boost::shared_dynamic_cast<physics::Joint>(_model->GetJoint( gimbal_joint_name_prefix_ + "roll" ) );
+    }
+  else
+    {
+      gimbal_pitch_joint = gimbal_roll_joint = physics::JointPtr();
+    }
+      
   if (!link)
   {
     ROS_FATAL("gazebo_ros_baro plugin error: bodyName: %s does not exist\n", link_name_.c_str());
@@ -102,6 +119,8 @@ void GazeboQuadrotorSimpleController::Load(physics::ModelPtr _model, sdf::Elemen
   controllers_.velocity_x.Load(_sdf, "velocityXY");
   controllers_.velocity_y.Load(_sdf, "velocityXY");
   controllers_.velocity_z.Load(_sdf, "velocityZ");
+  controllers_.gimbal_roll.Load( _sdf, "gimbal" );
+  controllers_.gimbal_pitch.Load( _sdf, "gimbal" );
 
   // Get inertia and mass of quadrotor body
   inertia = link->GetInertial()->GetPrincipalMoments();
@@ -118,6 +137,22 @@ void GazeboQuadrotorSimpleController::Load(physics::ModelPtr _model, sdf::Elemen
       ros::VoidPtr(), &callback_queue_);
     velocity_subscriber_ = node_handle_->subscribe(ops);
   }
+
+  // get gimbal commands
+  if( !gimbal_pose_topic_.empty() )
+    {
+    // Replace Point here with my own message
+      ros::SubscribeOptions ops = ros::SubscribeOptions::create<geometry_msgs::Point>(
+        gimbal_pose_topic_, 1,
+	boost::bind( &GazeboQuadrotorSimpleController::GimbalPoseCallback, this, _1),
+	ros::VoidPtr(), &callback_queue_ );
+      gimbal_pose_subscriber_ = node_handle_->subscribe(ops);
+    }
+
+  if( !gimbal_state_topic_.empty() )
+    {
+      gimbal_state_publisher_ = node_handle_->advertise<sensor_msgs::JointState>( gimbal_state_topic_, 5 );
+    }
 
   // subscribe imu
   if (!imu_topic_.empty())
@@ -145,6 +180,8 @@ void GazeboQuadrotorSimpleController::Load(physics::ModelPtr _model, sdf::Elemen
 
   // callback_queue_thread_ = boost::thread( boost::bind( &GazeboQuadrotorSimpleController::CallbackQueueThread,this ) );
 
+  ROS_INFO_NAMED( "quadrotor_simple_controller", "initial velocity cmd %g %g %g", velocity_command_.linear.x,
+		  velocity_command_.linear.y, velocity_command_.linear.z );
 
   Reset();
 
@@ -160,6 +197,13 @@ void GazeboQuadrotorSimpleController::Load(physics::ModelPtr _model, sdf::Elemen
 void GazeboQuadrotorSimpleController::VelocityCallback(const geometry_msgs::TwistConstPtr& velocity)
 {
   velocity_command_ = *velocity;
+  ROS_DEBUG_NAMED( "quadrotor_simple_controller", "getting velocity cmd %g %g %g", velocity_command_.linear.x,
+		  velocity_command_.linear.y, velocity_command_.linear.z );
+}
+
+void GazeboQuadrotorSimpleController::GimbalPoseCallback( const geometry_msgs::PointConstPtr& gimbal_pose)
+{
+  gimbal_pose_cmd_ = *gimbal_pose;
 }
 
 void GazeboQuadrotorSimpleController::ImuCallback(const sensor_msgs::ImuConstPtr& imu)
@@ -198,6 +242,9 @@ void GazeboQuadrotorSimpleController::Update()
 {
   math::Vector3 force, torque;
 
+  ROS_DEBUG_NAMED( "quadrotor_simple_controller", "current velocity cmd %g %g %g", velocity_command_.linear.x,
+		  velocity_command_.linear.y, velocity_command_.linear.z );
+
   // Get new commands/state
   callback_queue_.callAvailable();
 
@@ -217,13 +264,13 @@ void GazeboQuadrotorSimpleController::Update()
     velocity = link->GetWorldLinearVel();
   }
 
-//  static Time lastDebug;
-//  if ((world->GetSimTime() - lastDebug).Double() > 0.5) {
-//    ROS_DEBUG_STREAM_NAMED("quadrotor_simple_controller", "Velocity:         gazebo = [" << link->GetWorldLinearVel()   << "], state = [" << velocity << "]");
-//    ROS_DEBUG_STREAM_NAMED("quadrotor_simple_controller", "Acceleration:     gazebo = [" << link->GetWorldLinearAccel() << "], state = [" << acceleration << "]");
-//    ROS_DEBUG_STREAM_NAMED("quadrotor_simple_controller", "Angular Velocity: gazebo = [" << link->GetWorldAngularVel() << "], state = [" << angular_velocity << "]");
-//    lastDebug = world->GetSimTime();
-//  }
+  static common::Time lastDebug;
+  if ((world->GetSimTime() - lastDebug).Double() > 0.5) {
+    ROS_DEBUG_STREAM_NAMED("quadrotor_simple_controller", "Velocity:         gazebo = [" << link->GetWorldLinearVel()   << "], state = [" << velocity << "]");
+    ROS_DEBUG_STREAM_NAMED("quadrotor_simple_controller", "Acceleration:     gazebo = [" << link->GetWorldLinearAccel() << "], state = [" << acceleration << "]");
+    ROS_DEBUG_STREAM_NAMED("quadrotor_simple_controller", "Angular Velocity: gazebo = [" << link->GetWorldAngularVel() << "], state = [" << angular_velocity << "]");
+    lastDebug = world->GetSimTime();
+  }
 
   // Get gravity
   math::Vector3 gravity_body = pose.rot.RotateVector(world->GetPhysicsEngine()->GetGravity());
@@ -250,18 +297,47 @@ void GazeboQuadrotorSimpleController::Update()
   if (max_force_ > 0.0 && force.z > max_force_) force.z = max_force_;
   if (force.z < 0.0) force.z = 0.0;
 
-//  static double lastDebugOutput = 0.0;
-//  if (last_time.Double() - lastDebugOutput > 0.1) {
-//    ROS_DEBUG_NAMED("quadrotor_simple_controller", "Velocity = [%g %g %g], Acceleration = [%g %g %g]", velocity.x, velocity.y, velocity.z, acceleration.x, acceleration.y, acceleration.z);
-//    ROS_DEBUG_NAMED("quadrotor_simple_controller", "Command: linear = [%g %g %g], angular = [%g %g %g], roll/pitch = [%g %g]", velocity_command_.linear.x, velocity_command_.linear.y, velocity_command_.linear.z, velocity_command_.angular.x*180/M_PI, velocity_command_.angular.y*180/M_PI, velocity_command_.angular.z*180/M_PI, roll_command*180/M_PI, pitch_command*180/M_PI);
-//    ROS_DEBUG_NAMED("quadrotor_simple_controller", "Mass: %g kg, Inertia: [%g %g %g], Load: %g g", mass, inertia.x, inertia.y, inertia.z, load_factor);
-//    ROS_DEBUG_NAMED("quadrotor_simple_controller", "Force: [%g %g %g], Torque: [%g %g %g]", force.x, force.y, force.z, torque.x, torque.y, torque.z);
-//    lastDebugOutput = last_time.Double();
-//  }
+  static double lastDebugOutput = 0.0;
+  if (last_time.Double() - lastDebugOutput > 0.1) {
+    ROS_DEBUG_NAMED("quadrotor_simple_controller", "Velocity = [%g %g %g], Acceleration = [%g %g %g]", velocity.x, velocity.y, velocity.z, acceleration.x, acceleration.y, acceleration.z);
+    ROS_DEBUG_NAMED("quadrotor_simple_controller", "Command: linear = [%g %g %g], angular = [%g %g %g], roll/pitch = [%g %g]", velocity_command_.linear.x, velocity_command_.linear.y, velocity_command_.linear.z, velocity_command_.angular.x*180/M_PI, velocity_command_.angular.y*180/M_PI, velocity_command_.angular.z*180/M_PI, roll_command*180/M_PI, pitch_command*180/M_PI);
+    ROS_DEBUG_NAMED("quadrotor_simple_controller", "Mass: %g kg, Inertia: [%g %g %g], Load: %g g", mass, inertia.x, inertia.y, inertia.z, load_factor);
+    ROS_DEBUG_NAMED("quadrotor_simple_controller", "Force: [%g %g %g], Torque: [%g %g %g]", force.x, force.y, force.z, torque.x, torque.y, torque.z);
+    lastDebugOutput = last_time.Double();
+  }
 
   // set force and torque in gazebo
   link->AddRelativeForce(force);
   link->AddRelativeTorque(torque);
+
+  // deal with the gimbal
+  if( gimbal_pitch_joint != physics::JointPtr() && gimbal_roll_joint != physics::JointPtr() )
+    {
+      double gimbal_pitch_angle = gimbal_pitch_joint->GetState().GetAngle( 0 ).GetAsRadian();
+      double gimbal_roll_angle = gimbal_roll_joint->GetState().GetAngle( 0 ).GetAsRadian();
+
+      double gimbal_pitch_vel = gimbal_pitch_joint->GetVelocity( 0 );
+      double gimbal_roll_vel = gimbal_roll_joint->GetVelocity( 0 );
+       
+
+      double pitch_cmd = controllers_.gimbal_pitch.update( gimbal_pose_cmd_.x, gimbal_pitch_angle, gimbal_pitch_vel, dt );
+      double roll_cmd = controllers_.gimbal_roll.update( gimbal_pose_cmd_.y, gimbal_roll_angle, gimbal_roll_vel, dt );
+
+      gimbal_pitch_joint->SetForce( 0, pitch_cmd );
+      gimbal_roll_joint->SetForce( 0, roll_cmd );
+
+      // publish the joint_state
+      sensor_msgs::JointState joint_state;
+      joint_state.header.stamp = ros::Time::now();
+      joint_state.name.resize(2);
+      joint_state.name[0] = gimbal_joint_name_prefix_ + "pitch";
+      joint_state.name[1] = gimbal_joint_name_prefix_ + "roll";
+      joint_state.position.resize(2);
+      joint_state.position[0] = gimbal_pitch_angle;
+      joint_state.position[1] = gimbal_roll_angle;
+
+      gimbal_state_publisher_.publish( joint_state );
+    }
 
   // save last time stamp
   last_time = sim_time;
@@ -277,6 +353,8 @@ void GazeboQuadrotorSimpleController::Reset()
   controllers_.velocity_x.reset();
   controllers_.velocity_y.reset();
   controllers_.velocity_z.reset();
+  controllers_.gimbal_pitch.reset();
+  controllers_.gimbal_roll.reset();
 
   link->SetForce(math::Vector3(0,0,0));
   link->SetTorque(math::Vector3(0,0,0));
@@ -317,7 +395,7 @@ void GazeboQuadrotorSimpleController::PIDController::Load(sdf::ElementPtr _sdf, 
   if (_sdf->HasElement(prefix + "Limit"))            limit = _sdf->GetElement(prefix + "Limit")->GetValueDouble();
 }
 
-double GazeboQuadrotorSimpleController::PIDController::update(double new_input, double x, double dx, double dt)
+double GazeboQuadrotorSimpleController::PIDController::update(double new_input, double x, double dx, double dt )
 {
   // limit command
   if (limit > 0.0 && fabs(new_input) > limit) new_input = (new_input < 0 ? -1.0 : 1.0) * limit;

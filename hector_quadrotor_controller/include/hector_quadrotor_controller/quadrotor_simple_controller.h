@@ -37,6 +37,7 @@
 
 #include <geometry_msgs/Twist.h>
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/JointState.h>
 #include <nav_msgs/Odometry.h>
 
 namespace gazebo
@@ -60,17 +61,29 @@ private:
   /// \brief The link referred to by this plugin
   physics::LinkPtr link;
 
+  // \brief the pitch gimbal joint
+  physics::JointPtr gimbal_pitch_joint;
+
+  // \brief the roll gimbal joint
+  physics::JointPtr gimbal_roll_joint;
+
   ros::NodeHandle* node_handle_;
   ros::CallbackQueue callback_queue_;
   ros::Subscriber velocity_subscriber_;
   ros::Subscriber imu_subscriber_;
   ros::Subscriber state_subscriber_;
+  ros::Subscriber gimbal_pose_subscriber_;
+
+  ros::Publisher gimbal_state_publisher_;
 
   // void CallbackQueueThread();
   // boost::mutex lock_;
   // boost::thread callback_queue_thread_;
 
   geometry_msgs::Twist velocity_command_;
+  geometry_msgs::Point gimbal_pose_cmd_;
+
+  void GimbalPoseCallback( const geometry_msgs::PointConstPtr&);
   void VelocityCallback(const geometry_msgs::TwistConstPtr&);
   void ImuCallback(const sensor_msgs::ImuConstPtr&);
   void StateCallback(const nav_msgs::OdometryConstPtr&);
@@ -80,7 +93,11 @@ private:
   math::Vector3 euler, velocity, acceleration, angular_velocity;
 
   std::string link_name_;
+  std::string gimbal_joint_name_prefix_;
+
   std::string namespace_;
+  std::string gimbal_pose_topic_;
+  std::string gimbal_state_topic_;
   std::string velocity_topic_;
   std::string imu_topic_;
   std::string state_topic_;
@@ -103,7 +120,7 @@ private:
     double output;
     double p, i, d;
 
-    double update(double input, double x, double dx, double dt);
+    double update(double input, double x, double dx, double dt );
     void reset();
   };
 
@@ -114,6 +131,9 @@ private:
     PIDController velocity_x;
     PIDController velocity_y;
     PIDController velocity_z;
+
+    PIDController gimbal_roll;
+    PIDController gimbal_pitch;
   } controllers_;
 
   math::Vector3 inertia;
