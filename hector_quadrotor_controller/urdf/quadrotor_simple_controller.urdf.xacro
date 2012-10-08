@@ -17,7 +17,7 @@ xmlns:xacro="http://ros.org/wiki/xacro"
         <stateTopic>ground_truth/state</stateTopic>
         <imuTopic>imu</imuTopic>
         <topicName>cmd_vel</topicName>
-	<gimbalPoseTopicName>gimbal_pose</gimbalPoseTopicName>
+	<gimbalPoseTopicName>cmd_gimbal</gimbalPoseTopicName>
 	<gimbalStateTopicName>joint_states</gimbalStateTopicName>
 	<gimbalJointNamePrefix>front_cam_</gimbalJointNamePrefix>
 	<gimbalProportionalGain>1.0</gimbalProportionalGain>
