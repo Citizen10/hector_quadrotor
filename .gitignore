@@ -15,5 +15,14 @@
 /hector_uav_msgs/src
 /hector_uav_msgs/srv_gen
 
+# more ignores
+/hector_quadrotor_controller/urdf/quadrotor_plugins.urdf.xacro
+/hector_quadrotor_gazebo/build/
+/hector_quadrotor_gazebo_plugins/build/
+/hector_quadrotor_gazebo_plugins/lib/
+/hector_quadrotor_teleop/bin/
+/hector_quadrotor_teleop/build/
+/hector_quadrotor_urdf/build/
+
 # emacs cruft
 *~

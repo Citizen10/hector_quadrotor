@@ -5,7 +5,7 @@
    <arg name="model_name" default="quadrotor" />
    <arg name="x_pos" default="0.0" />
    <arg name="y_pos" default="0.0" />
-   <arg name="z_pos" default="0.5" />
+   <arg name="z_pos" default="1.0" />
 
    <include file="$(find hector_quadrotor_gazebo)/launch/spawn_quadrotor.launch" >
      <arg name="model" value="$(find hector_quadrotor_urdf)/urdf/quadrotor_with_cam.urdf.xacro"/> 
