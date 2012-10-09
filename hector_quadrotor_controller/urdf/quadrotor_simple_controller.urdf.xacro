@@ -15,7 +15,7 @@ xmlns:xacro="http://ros.org/wiki/xacro"
         <updateRate>0.0</updateRate>
         <bodyName>base_link</bodyName>
         <stateTopic>ground_truth/state</stateTopic>
-        <imuTopic>raw_imu</imuTopic>
+        <imuTopic>imu</imuTopic>
         <topicName>cmd_vel</topicName>
 	<gimbalPoseTopicName>cmd_gimbal</gimbalPoseTopicName>
 	<gimbalStateTopicName>joint_states</gimbalStateTopicName>
