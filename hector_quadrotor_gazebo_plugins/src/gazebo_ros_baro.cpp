@@ -68,8 +68,10 @@ void GazeboRosBaro::Load(physics::ModelPtr _model, sdf::ElementPtr _sdf)
   }
   else {
     link_name_ = _sdf->GetElement("bodyName")->GetValueString();
-    link = boost::shared_dynamic_cast<physics::Link>(world->GetEntity(link_name_));
+    link = _model->GetLink( link_name_ );
   }
+
+  ROS_INFO_NAMED( "gazebo_ros_baro", "got link %s for model %s for baro", link->GetName().c_str(), link->GetModel()->GetName().c_str() );
 
   if (!link)
   {
