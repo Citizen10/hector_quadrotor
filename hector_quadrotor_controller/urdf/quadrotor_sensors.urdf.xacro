@@ -62,7 +62,7 @@ xmlns:xacro="http://ros.org/wiki/xacro"
         <velocityGaussianNoise>0.1 0.1 0.1</velocityGaussianNoise>
 	<!-- RCSMP Marine Park, Brooklyn, NY -->
 	<referenceLatitude>40.589681</referenceLatitude>
-	<referenceLongitude>-73.918580</referenceLongitude>
+	<referenceLongitude>-73.918520</referenceLongitude>
 	<referenceAltitude>0</referenceAltitude>
 	<referenceHeading>0</referenceHeading>
       </controller:hector_gazebo_ros_gps>
@@ -73,7 +73,7 @@ xmlns:xacro="http://ros.org/wiki/xacro"
         <bodyName>base_link</bodyName>
         <topicName>ground_truth/state</topicName>
         <gaussianNoise>0.0</gaussianNoise>
-        <frameName>nav</frameName>
+        <frameName>map</frameName>
       </controller:gazebo_ros_p3d>
 
     </gazebo>
