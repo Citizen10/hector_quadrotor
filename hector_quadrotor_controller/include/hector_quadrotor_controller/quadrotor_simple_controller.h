@@ -84,8 +84,12 @@ private:
   geometry_msgs::Twist velocity_command_;
   geometry_msgs::Point gimbal_pose_cmd_;
 
-  bool ServiceCallback(std_srvs::Empty::Request &req,
-		       std_srvs::Empty::Response &res);
+  bool OnCallback(std_srvs::Empty::Request &req,
+		  std_srvs::Empty::Response &res);
+
+  bool OffCallback(std_srvs::Empty::Request &req,
+		   std_srvs::Empty::Response &res);
+
   void GimbalPoseCallback( const geometry_msgs::PointConstPtr&);
   void VelocityCallback(const geometry_msgs::TwistConstPtr&);
   void ImuCallback(const sensor_msgs::ImuConstPtr&);
@@ -105,8 +109,8 @@ private:
   std::string imu_topic_;
   std::string state_topic_;
 
-  ros::ServiceServer srv_;
-  std::string serviceName;
+  ros::ServiceServer on_srv_;
+  ros::ServiceServer off_srv_;
 
   double max_force_;
   bool quadrotor_is_on;

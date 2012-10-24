@@ -30,6 +30,7 @@
 #include <ros/ros.h>
 #include <sensor_msgs/Joy.h>
 #include <geometry_msgs/Twist.h>
+#include <std_srvs/Empty.h>
 
 namespace hector_quadrotor {
 
@@ -39,6 +40,9 @@ private:
   ros::NodeHandle node_handle_;
   ros::Subscriber joy_subscriber_;
   ros::Publisher velocity_publisher_;
+  ros::ServiceClient on_client_;
+  ros::ServiceClient off_client_;
+
   geometry_msgs::Twist velocity_;
 
   struct Axis
@@ -49,7 +53,7 @@ private:
 
   struct Button
   {
-    unsigned int button;
+    int button;
   };
 
   struct {
@@ -61,6 +65,8 @@ private:
 
   struct
   {
+    Button on;
+    Button off;
   } buttons_;
 
 public:
@@ -75,6 +81,9 @@ public:
     axes_.z.max = 2.0;
     axes_.yaw.axis = 0;
     axes_.yaw.max = 90.0*M_PI/180.0;
+    buttons_.on.button = 1;
+    buttons_.off.button = 2;
+
     params.getParam("x_axis", axes_.x.axis);
     params.getParam("y_axis", axes_.y.axis);
     params.getParam("z_axis", axes_.z.axis);
@@ -84,8 +93,14 @@ public:
     params.getParam("z_velocity_max", axes_.z.max);
     params.getParam("yaw_velocity_max", axes_.yaw.max);
 
+    params.getParam("on_button", buttons_.on.button );
+    params.getParam("off_button", buttons_.off.button );
+
     joy_subscriber_ = node_handle_.subscribe<sensor_msgs::Joy>("joy", 1, boost::bind(&Teleop::joyCallback, this, _1));
     velocity_publisher_ = node_handle_.advertise<geometry_msgs::Twist>("cmd_vel", 10);
+
+    on_client_ = node_handle_.serviceClient<std_srvs::Empty>( "on" );
+    off_client_ = node_handle_.serviceClient<std_srvs::Empty>( "off" );
   }
 
   ~Teleop()
@@ -100,6 +115,14 @@ public:
     velocity_.linear.z  = getAxis(joy, axes_.z.axis)   * axes_.z.max;
     velocity_.angular.z = getAxis(joy, axes_.yaw.axis) * axes_.yaw.max;
     velocity_publisher_.publish(velocity_);
+
+    std_srvs::Empty empty;
+
+    if( getButton( joy, buttons_.on.button ) )
+      on_client_.call( empty );
+
+    if( getButton( joy, buttons_.off.button ) )
+      off_client_.call( empty );
   }
 
   sensor_msgs::Joy::_axes_type::value_type getAxis(const sensor_msgs::JoyConstPtr& joy, int axis)

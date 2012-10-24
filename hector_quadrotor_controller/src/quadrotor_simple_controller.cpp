@@ -184,13 +184,8 @@ void GazeboQuadrotorSimpleController::Load(physics::ModelPtr _model, sdf::Elemen
   ROS_INFO_NAMED( "quadrotor_simple_controller", "initial velocity cmd %g %g %g", velocity_command_.linear.x,
 		  velocity_command_.linear.y, velocity_command_.linear.z );
 
-  if (!_sdf->HasElement("serviceName"))
-    serviceName = "power_onoff";
-  else
-    serviceName = _sdf->GetElement("serviceName")->GetValueString();
-
-  if (!serviceName.empty())
-    srv_ = node_handle_->advertiseService(serviceName, &GazeboQuadrotorSimpleController::ServiceCallback, this);
+  on_srv_ = node_handle_->advertiseService("on", &GazeboQuadrotorSimpleController::OnCallback, this);
+  off_srv_ = node_handle_->advertiseService("off", &GazeboQuadrotorSimpleController::OffCallback, this);
 
   Reset();
 
@@ -205,11 +200,19 @@ void GazeboQuadrotorSimpleController::Load(physics::ModelPtr _model, sdf::Elemen
 ////////////////////////////////////////////////////////////////////////////////
 // Callbacks
 ////////////////////////////////////////////////////////////////////////////////
-// turn the quad on/off
-bool GazeboQuadrotorSimpleController::ServiceCallback(std_srvs::Empty::Request &req,
-						      std_srvs::Empty::Response &res)
+// turn the quad on
+bool GazeboQuadrotorSimpleController::OnCallback(std_srvs::Empty::Request &req,
+						 std_srvs::Empty::Response &res)
 {
-  quadrotor_is_on = !quadrotor_is_on;
+  quadrotor_is_on = true;
+  return true;
+}
+
+// turn the quad off
+bool GazeboQuadrotorSimpleController::OffCallback(std_srvs::Empty::Request &req,
+						 std_srvs::Empty::Response &res)
+{
+  quadrotor_is_on = false;
   return true;
 }
 
